@@ -2,9 +2,6 @@ package soot.jimple.infoflow.android.test.sourceToSinks;
 
 import java.io.IOException;
 
-import org.junit.Assert;
-import org.junit.Test;
-import org.xml.sax.SAXParseException;
 import org.xmlpull.v1.XmlPullParserException;
 
 import soot.jimple.infoflow.android.SetupApplication;

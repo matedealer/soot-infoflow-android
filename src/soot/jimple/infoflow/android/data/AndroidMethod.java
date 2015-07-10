@@ -12,16 +12,12 @@ package soot.jimple.infoflow.android.data;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import soot.SootMethod;
-import soot.jimple.infoflow.data.AccessPath;
 import soot.jimple.infoflow.data.SootMethodAndClass;
+import soot.jimple.infoflow.util.SootMethodRepresentationParser;
 
 /**
  * Class representing a single method in the Android SDK
@@ -52,16 +48,7 @@ public class AndroidMethod extends SootMethodAndClass {
 	private boolean isNeitherNor = false;
 
 	private CATEGORY category = null;
-
-	private HashSet<AccessPath> sourceReturnSet = new HashSet<AccessPath>();
-	private HashSet<AccessPath> sourceBaseSet = new HashSet<AccessPath>();
-	private HashSet<AccessPath> sinkBaseSet = new HashSet<AccessPath>();
-	private HashMap<Integer, HashSet<AccessPath>> sourceParamSet = new HashMap<Integer, HashSet<AccessPath>>();
-	private HashMap<Integer, HashSet<AccessPath>> sinkParamSet = new HashMap<Integer, HashSet<AccessPath>>();
-
-	// for the xml-Writer
-	public boolean hasAccessPaths = false;
-
+	
 	public AndroidMethod(String methodName, String returnType, String className) {
 		super(methodName, className, returnType, new ArrayList<String>());
 		this.permissions = Collections.emptySet();
@@ -165,102 +152,22 @@ public class AndroidMethod extends SootMethodAndClass {
 	public boolean isAnnotated() {
 		return isSource || isSink || isNeitherNor;
 	}
-
-	public HashSet<AccessPath> getSourceReturnSet() {
-		return sourceReturnSet;
-	}
-
-	public void setSourceReturnSet(HashSet<AccessPath> sourceReturnSet) {
-		this.sourceReturnSet = sourceReturnSet;
-	}
-
-	public HashSet<AccessPath> getSourceBaseSet() {
-		return sourceBaseSet;
-	}
-
-	public void setSourceBaseSet(HashSet<AccessPath> sourceBaseSet) {
-		this.sourceBaseSet = sourceBaseSet;
-	}
-
-	public HashSet<AccessPath> getSinkBaseSet() {
-		return sinkBaseSet;
-	}
-
-	public void setSinkBaseSet(HashSet<AccessPath> sinkBaseSet) {
-		this.sinkBaseSet = sinkBaseSet;
-	}
-
-	public HashMap<Integer, HashSet<AccessPath>> getSourceParamSet() {
-		return sourceParamSet;
-	}
-
-	public void setSourceParamSet(HashMap<Integer, HashSet<AccessPath>> sourceParamSet) {
-		this.sourceParamSet = sourceParamSet;
-	}
-
-	public HashMap<Integer, HashSet<AccessPath>> getSinkParamSet() {
-		return sinkParamSet;
-	}
-
-	public void setSinkParamSet(HashMap<Integer, HashSet<AccessPath>> sinkParamSet) {
-		this.sinkParamSet = sinkParamSet;
-	}
-
+	
 	/***
-	 * Static Method to create AndroidMethode from Signature
+	 * Static method to create AndroidMethod from Soot method signature
 	 * 
-	 * @param signature
-	 * @return AndroidMethode or Null
-	 * @author Joern Tillmanns
+	 * @param signature The Soot method signature
+	 * @return The new AndroidMethod object
 	 */
-	public static AndroidMethod createfromSignature(String signature) {
-		final String regex = "^<(.+):\\s*(.+)\\s+(.+)\\s*\\((.*)\\)>";
-		// if the signature is without surrounding < and >
-		final String regex_2 = "^(.+):\\s*(.+)\\s+(.+)\\s*\\((.*)\\)";
-		Pattern p = Pattern.compile(regex);
-		Pattern p2 = Pattern.compile(regex_2);
-
-		Matcher m = p.matcher(signature);
-		Matcher m2 = p2.matcher(signature);
-
-		if (m.find()) {
-			int groupIdx = 1;
-			// class name
-			String className = m.group(groupIdx++).trim();
-
-			// return type
-			String returnType = m.group(groupIdx++).trim();
-
-			// method name
-			String methodName = m.group(groupIdx++).trim();
-
-			// method parameter
-			List<String> methodParameters = new ArrayList<String>();
-			String params = m.group(groupIdx++).trim();
-			if (!params.isEmpty())
-				for (String parameter : params.split(","))
-					methodParameters.add(parameter.trim());
-
-			return new AndroidMethod(methodName, methodParameters, returnType, className);
-		} else if (m2.find()) {
-			int groupIdx = 1;
-			String className = m2.group(groupIdx++).trim();
-
-			// return type
-			String returnType = m2.group(groupIdx++).trim();
-
-			// method name
-			String methodName = m2.group(groupIdx++).trim();
-
-			// method parameter
-			List<String> methodParameters = new ArrayList<String>();
-			String params = m2.group(groupIdx++).trim();
-			if (!params.isEmpty())
-				for (String parameter : params.split(","))
-					methodParameters.add(parameter.trim());
-
-			return new AndroidMethod(methodName, methodParameters, returnType, className);
-		}
-		return null;
+	public static AndroidMethod createFromSignature(String signature) {
+		if (!signature.startsWith("<"))
+			signature = "<" + signature;
+		if (!signature.endsWith(">"))
+			signature = signature + ">";
+		
+		SootMethodAndClass smac = SootMethodRepresentationParser.v()
+				.parseSootMethodString(signature);
+		return new AndroidMethod(smac.getMethodName(), smac.getParameters(),
+				smac.getReturnType(), smac.getClassName());
 	}
 }

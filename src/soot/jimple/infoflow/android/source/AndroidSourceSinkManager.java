@@ -14,6 +14,7 @@ import heros.InterproceduralCFG;
 import heros.solver.IDESolver;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -27,6 +28,7 @@ import soot.SootField;
 import soot.SootMethod;
 import soot.Unit;
 import soot.jimple.AssignStmt;
+import soot.jimple.DefinitionStmt;
 import soot.jimple.FieldRef;
 import soot.jimple.IdentityStmt;
 import soot.jimple.InstanceInvokeExpr;
@@ -35,13 +37,13 @@ import soot.jimple.InvokeExpr;
 import soot.jimple.ParameterRef;
 import soot.jimple.Stmt;
 import soot.jimple.StringConstant;
-import soot.jimple.infoflow.android.data.AndroidMethod;
 import soot.jimple.infoflow.android.resources.ARSCFileParser;
 import soot.jimple.infoflow.android.resources.ARSCFileParser.AbstractResource;
 import soot.jimple.infoflow.android.resources.ARSCFileParser.ResPackage;
 import soot.jimple.infoflow.android.resources.LayoutControl;
+import soot.jimple.infoflow.android.source.data.SourceSinkDefinition;
 import soot.jimple.infoflow.data.AccessPath;
-import soot.jimple.infoflow.source.AccessPathBundle;
+import soot.jimple.infoflow.data.SootMethodAndClass;
 import soot.jimple.infoflow.source.ISourceSinkManager;
 import soot.jimple.infoflow.source.SourceInfo;
 import soot.jimple.toolkits.ide.icfg.BiDiInterproceduralCFG;
@@ -58,9 +60,7 @@ import com.google.common.cache.LoadingCache;
  * @author Steven Arzt
  */
 public class AndroidSourceSinkManager implements ISourceSinkManager {
-
-	protected static final SourceInfo sourceInfo = new SourceInfo(true);
-
+	
 	/**
 	 * Possible modes for matching layout components as data flow sources
 	 * 
@@ -111,9 +111,9 @@ public class AndroidSourceSinkManager implements ISourceSinkManager {
 	protected final static String Activity_FindViewById = "<android.app.Activity: android.view.View findViewById(int)>";
 	protected final static String View_FindViewById = "<android.app.View: android.view.View findViewById(int)>";
 
-	protected final Map<String, AndroidMethod> sourceMethods;
-	protected final Map<String, AndroidMethod> sinkMethods;
-	protected final Map<String, AndroidMethod> callbackMethods;
+	protected final Map<String, SourceSinkDefinition> sourceMethods;
+	protected final Map<String, SourceSinkDefinition> sinkMethods;
+	protected final Map<String, SootMethodAndClass> callbackMethods;
 
 	protected final LayoutMatchingMode layoutMatching;
 	protected final Map<Integer, LayoutControl> layoutControls;
@@ -125,7 +125,9 @@ public class AndroidSourceSinkManager implements ISourceSinkManager {
 	protected final Set<SootMethod> analyzedLayoutMethods = new HashSet<SootMethod>();
 	protected SootClass[] iccBaseClasses = null;
 
-	protected final LoadingCache<SootClass, Collection<SootClass>> interfacesOf = IDESolver.DEFAULT_CACHE_BUILDER.build(new CacheLoader<SootClass, Collection<SootClass>>() {
+	protected final LoadingCache<SootClass, Collection<SootClass>> interfacesOf =
+			IDESolver.DEFAULT_CACHE_BUILDER.build(new CacheLoader<SootClass, Collection<SootClass>>() {
+				
 		@Override
 		public Collection<SootClass> load(SootClass sc) throws Exception {
 			Set<SootClass> set = new HashSet<SootClass>(sc.getInterfaceCount());
@@ -137,8 +139,19 @@ public class AndroidSourceSinkManager implements ISourceSinkManager {
 				set.addAll(interfacesOf.getUnchecked(sc.getSuperclass()));
 			return set;
 		}
+		
 	});
-
+	
+	protected final LoadingCache<SootMethod, String> methodToSignature =
+			IDESolver.DEFAULT_CACHE_BUILDER.build(new CacheLoader<SootMethod, String>() {
+				
+		@Override
+		public String load(SootMethod sm) throws Exception {
+			return sm.getSignature();
+		}
+		
+	});
+	
 	/**
 	 * Creates a new instance of the {@link AndroidSourceSinkManager} class with
 	 * either strong or weak matching.
@@ -148,8 +161,10 @@ public class AndroidSourceSinkManager implements ISourceSinkManager {
 	 * @param sinks
 	 *            The list of sink methods
 	 */
-	public AndroidSourceSinkManager(Set<AndroidMethod> sources, Set<AndroidMethod> sinks) {
-		this(sources, sinks, new HashSet<AndroidMethod>(), LayoutMatchingMode.NoMatch, null);
+	public AndroidSourceSinkManager(Set<SourceSinkDefinition> sources,
+			Set<SourceSinkDefinition> sinks) {
+		this(sources, sinks, Collections.<SootMethodAndClass>emptySet(),
+				LayoutMatchingMode.NoMatch, null);
 	}
 
 	/**
@@ -178,23 +193,29 @@ public class AndroidSourceSinkManager implements ISourceSinkManager {
 	 *            A map from reference identifiers to the respective Android
 	 *            layout controls
 	 */
-	public AndroidSourceSinkManager(Set<AndroidMethod> sources, Set<AndroidMethod> sinks, Set<AndroidMethod> callbackMethods, LayoutMatchingMode layoutMatching, Map<Integer, LayoutControl> layoutControls) {
-		this.sourceMethods = new HashMap<String, AndroidMethod>();
-		for (AndroidMethod am : sources)
-			this.sourceMethods.put(am.getSignature(), am);
+	public AndroidSourceSinkManager(Set<SourceSinkDefinition> sources,
+			Set<SourceSinkDefinition> sinks,
+			Set<SootMethodAndClass> callbackMethods,
+			LayoutMatchingMode layoutMatching,
+			Map<Integer, LayoutControl> layoutControls) {
+		this.sourceMethods = new HashMap<String, SourceSinkDefinition>();
+		for (SourceSinkDefinition am : sources)
+			this.sourceMethods.put(am.getMethod().getSignature(), am);
 
-		this.sinkMethods = new HashMap<String, AndroidMethod>();
-		for (AndroidMethod am : sinks)
-			this.sinkMethods.put(am.getSignature(), am);
+		this.sinkMethods = new HashMap<String, SourceSinkDefinition>();
+		for (SourceSinkDefinition am : sinks)
+			this.sinkMethods.put(am.getMethod().getSignature(), am);
 
-		this.callbackMethods = new HashMap<String, AndroidMethod>();
-		for (AndroidMethod am : callbackMethods)
+		this.callbackMethods = new HashMap<String, SootMethodAndClass>();
+		for (SootMethodAndClass am : callbackMethods)
 			this.callbackMethods.put(am.getSignature(), am);
 
 		this.layoutMatching = layoutMatching;
 		this.layoutControls = layoutControls;
 
-		System.out.println("Created a SourceSinkManager with " + this.sourceMethods.size() + " sources, " + this.sinkMethods.size() + " sinks, and " + this.callbackMethods.size() + " callback methods.");
+		System.out.println("Created a SourceSinkManager with " + this.sourceMethods.size()
+				+ " sources, " + this.sinkMethods.size() + " sinks, and "
+				+ this.callbackMethods.size() + " callback methods.");
 	}
 
 	/**
@@ -209,7 +230,8 @@ public class AndroidSourceSinkManager implements ISourceSinkManager {
 	}
 
 	@Override
-	public boolean isSink(Stmt sCallSite, InterproceduralCFG<Unit, SootMethod> cfg) {
+	public boolean isSink(Stmt sCallSite,
+			InterproceduralCFG<Unit, SootMethod> cfg, AccessPath ap) {
 		if (!sCallSite.containsInvokeExpr())
 			return false;
 
@@ -232,15 +254,16 @@ public class AndroidSourceSinkManager implements ISourceSinkManager {
 																	// Activity
 																	// class
 			};
-
-		SootMethod callee = sCallSite.getInvokeExpr().getMethod();
-		SootClass sc = callee.getDeclaringClass();
+		
+		final SootMethod callee = sCallSite.getInvokeExpr().getMethod();
+		final SootClass sc = callee.getDeclaringClass();
+		final String subSig = callee.getSubSignature();
 		if (!sc.isInterface()) {
 			for (SootClass clazz : iccBaseClasses) {
 				if (Scene.v().getOrMakeFastHierarchy().isSubclass(sc, clazz)) {
-					final String subSig = callee.getSubSignature();
 					if (clazz.declaresMethod(subSig)) {
-						if (this.sinkMethods.containsKey(clazz.getMethod(subSig).getSignature()))
+						if (this.sinkMethods.containsKey(methodToSignature.getUnchecked(
+								clazz.getMethod(subSig))))
 							return true;
 						break;
 					}
@@ -248,15 +271,15 @@ public class AndroidSourceSinkManager implements ISourceSinkManager {
 			}
 		}
 
-		final String signature = sCallSite.getInvokeExpr().getMethod().getSignature();
+		final String signature = methodToSignature.getUnchecked(
+				sCallSite.getInvokeExpr().getMethod());
 		if (this.sinkMethods.containsKey(signature))
 			return true;
 
 		// Check whether we have any of the interfaces on the list
-		final String subSig = sCallSite.getInvokeExpr().getMethod().getSubSignature();
 		for (SootClass i : interfacesOf.getUnchecked(sCallSite.getInvokeExpr().getMethod().getDeclaringClass())) {
 			if (i.declaresMethod(subSig))
-				if (this.sinkMethods.containsKey(i.getMethod(subSig).getSignature()))
+				if (this.sinkMethods.containsKey(methodToSignature.getUnchecked(i.getMethod(subSig))))
 					return true;
 		}
 
@@ -266,33 +289,39 @@ public class AndroidSourceSinkManager implements ISourceSinkManager {
 	@Override
 	public SourceInfo getSourceInfo(Stmt sCallSite, InterproceduralCFG<Unit, SootMethod> cfg) {
 		SourceType type = getSourceType(sCallSite, cfg);
-		if (type == SourceType.NoSource) {
-			//this is no source
+		if (type == SourceType.NoSource)
+			return null;
+		
+		return getSourceInfo(sCallSite, type);
+	}
+
+	protected SourceInfo getSourceInfo(Stmt sCallSite, SourceType type) {
+		if (type == SourceType.UISource || type == SourceType.Callback) {
+			if (sCallSite instanceof DefinitionStmt) {
+				DefinitionStmt defStmt = (DefinitionStmt) sCallSite;
+				return new SourceInfo(new AccessPath(defStmt.getLeftOp(), true));
+			}
 			return null;
 		}
-		if (type != SourceType.MethodCall){
-			//this is not a method source (e.g. UI)
-			return sourceInfo;
-		}
-		if(!sCallSite.containsInvokeExpr()){
-			//something wired happened
+		
+		// The only other possibility is to have a method invocation
+		if (!sCallSite.containsInvokeExpr())
 			return null;
+		
+		// If this is a method call and we have a return value, we taint it.
+		// Otherwise, if we have an instance invocation, we taint the base
+		// object
+		if (sCallSite instanceof DefinitionStmt
+				&& sCallSite.getInvokeExpr().getMethod().getReturnType() != null) {
+			DefinitionStmt defStmt = (DefinitionStmt) sCallSite;
+			return new SourceInfo(new AccessPath(defStmt.getLeftOp(), true));
 		}
-		AccessPath ap = null;
-		AccessPath sourceAP[] = new AccessPath[1];
-		AccessPathBundle bundle;
-		SourceInfo info;
-		if (sCallSite instanceof AssignStmt && sCallSite.getInvokeExpr().getMethod().getReturnType() != null) {
-			// taint the return value
-			ap = new AccessPath(((AssignStmt) sCallSite).getLeftOp(), true);
-		} else if (sCallSite instanceof InstanceInvokeExpr) {
-			// taint the base object
-			ap = new AccessPath(((InstanceInvokeExpr) sCallSite).getBase(), true);
+		else if (sCallSite.getInvokeExpr() instanceof InstanceInvokeExpr) {
+			InstanceInvokeExpr iinv = (InstanceInvokeExpr) sCallSite.getInvokeExpr();
+			return new SourceInfo(new AccessPath(iinv.getBase(), true));
 		}
-		sourceAP[0] = ap;
-		bundle = new AccessPathBundle(sourceAP);
-		info = new SourceInfo(sourceInfo.getTaintSubFields(), sourceInfo.getUserData(), bundle);
-		return info;
+		else
+			return null;
 	}
 
 	/**
@@ -307,21 +336,24 @@ public class AndroidSourceSinkManager implements ISourceSinkManager {
 	 * @return The type of source that was detected in the statement of NoSource
 	 *         if the statement does not contain a source
 	 */
-	public SourceType getSourceType(Stmt sCallSite, InterproceduralCFG<Unit, SootMethod> cfg) {
+	protected SourceType getSourceType(Stmt sCallSite, InterproceduralCFG<Unit, SootMethod> cfg) {
 		assert cfg != null;
 		assert cfg instanceof BiDiInterproceduralCFG;
-
+		
 		// This might be a normal source method
 		if (sCallSite.containsInvokeExpr()) {
-			String signature = sCallSite.getInvokeExpr().getMethod().getSignature();
+			String signature = methodToSignature.getUnchecked(
+					sCallSite.getInvokeExpr().getMethod());
 			if (this.sourceMethods.containsKey(signature))
 				return SourceType.MethodCall;
 
 			// Check whether we have any of the interfaces on the list
 			final String subSig = sCallSite.getInvokeExpr().getMethod().getSubSignature();
-			for (SootClass i : interfacesOf.getUnchecked(sCallSite.getInvokeExpr().getMethod().getDeclaringClass())) {
+			for (SootClass i : interfacesOf.getUnchecked(sCallSite.getInvokeExpr()
+					.getMethod().getDeclaringClass())) {
 				if (i.declaresMethod(subSig))
-					if (this.sinkMethods.containsKey(i.getMethod(subSig).getSignature()))
+					if (this.sinkMethods.containsKey(methodToSignature.getUnchecked(
+							i.getMethod(subSig))))
 						return SourceType.MethodCall;
 			}
 		}
@@ -333,7 +365,7 @@ public class AndroidSourceSinkManager implements ISourceSinkManager {
 		// This statement might access a sensitive parameter in a callback
 		// method
 		if (enableCallbackSources) {
-			final String callSiteSignature = cfg.getMethodOf(sCallSite).getSignature();
+			final String callSiteSignature = methodToSignature.getUnchecked(cfg.getMethodOf(sCallSite));
 			if (sCallSite instanceof IdentityStmt) {
 				IdentityStmt is = (IdentityStmt) sCallSite;
 				if (is.getRightOp() instanceof ParameterRef)
@@ -362,7 +394,9 @@ public class AndroidSourceSinkManager implements ISourceSinkManager {
 		// to one of the well-known resource handling functions in Android
 		if (this.layoutMatching != LayoutMatchingMode.NoMatch && sCallSite.containsInvokeExpr()) {
 			InvokeExpr ie = sCallSite.getInvokeExpr();
-			if (ie.getMethod().getSignature().equals(Activity_FindViewById) || ie.getMethod().getSignature().equals(View_FindViewById)) {
+			final String signature = methodToSignature.getUnchecked(ie.getMethod());
+			if (signature.equals(Activity_FindViewById)
+					|| signature.equals(View_FindViewById)) {
 				// Perform a constant propagation inside this method exactly
 				// once
 				SootMethod uiMethod = cfg.getMethodOf(sCallSite);
@@ -390,7 +424,10 @@ public class AndroidSourceSinkManager implements ISourceSinkManager {
 				else if (ie.getArg(0) instanceof Local) {
 					Integer idVal = findLastResIDAssignment(sCallSite, (Local) ie.getArg(0), (BiDiInterproceduralCFG<Unit, SootMethod>) cfg, new HashSet<Stmt>(cfg.getMethodOf(sCallSite).getActiveBody().getUnits().size()));
 					if (idVal == null) {
-						System.err.println("Could not find assignment to local " + ((Local) ie.getArg(0)).getName() + " in method " + cfg.getMethodOf(sCallSite).getSignature());
+						System.err.println("Could not find assignment to local "
+									+ ((Local) ie.getArg(0)).getName()
+									+ " in method "
+									+ cfg.getMethodOf(sCallSite).getSignature());
 						return false;
 					} else
 						id = idVal.intValue();
@@ -557,9 +594,9 @@ public class AndroidSourceSinkManager implements ISourceSinkManager {
 	 * @param sinks
 	 *            The methods to be added as sinks
 	 */
-	public void addSink(Set<AndroidMethod> sinks) {
-		for (AndroidMethod am : sinks)
-			this.sinkMethods.put(am.getSignature(), am);
+	public void addSink(Set<SourceSinkDefinition> sinks) {
+		for (SourceSinkDefinition am : sinks)
+			this.sinkMethods.put(am.getMethod().getSignature(), am);
 	}
 
 	/**
@@ -583,11 +620,5 @@ public class AndroidSourceSinkManager implements ISourceSinkManager {
 	public void setAppPackageName(String appPackageName) {
 		this.appPackageName = appPackageName;
 	}
-
-	@Override
-	public boolean leaks(Stmt sCallSite, InterproceduralCFG<Unit, SootMethod> cfg, int index, AccessPath ap) {
-		//same behaviour as before
-		return isSink(sCallSite, cfg);
-	}
-
+	
 }

@@ -33,14 +33,13 @@ import org.xmlpull.v1.XmlPullParserException;
 import soot.jimple.infoflow.IInfoflow.CallgraphAlgorithm;
 import soot.jimple.infoflow.android.SetupApplication;
 import soot.jimple.infoflow.android.source.AndroidSourceSinkManager.LayoutMatchingMode;
-import soot.jimple.infoflow.android.SetupApplication;
 import soot.jimple.infoflow.data.pathBuilders.DefaultPathBuilderFactory.PathBuilder;
 import soot.jimple.infoflow.handlers.ResultsAvailableHandler;
 import soot.jimple.infoflow.ipc.IIPCManager;
 import soot.jimple.infoflow.results.InfoflowResults;
 import soot.jimple.infoflow.results.ResultSinkInfo;
 import soot.jimple.infoflow.results.ResultSourceInfo;
-import soot.jimple.infoflow.solver.IInfoflowCFG;
+import soot.jimple.infoflow.solver.cfg.IInfoflowCFG;
 import soot.jimple.infoflow.taintWrappers.EasyTaintWrapper;
 import soot.jimple.infoflow.taintWrappers.ITaintPropagationWrapper;
 import soot.jimple.infoflow.taintWrappers.TaintWrapperSet;
@@ -100,10 +99,10 @@ public class Test {
 	private static boolean stopAfterFirstFlow = false;
 	private static boolean implicitFlows = false;
 	private static boolean staticTracking = true;
-	private static boolean enableCallbacks = false;
-	private static boolean enableExceptions = false;
+	private static boolean enableCallbacks = true;
+	private static boolean enableExceptions = true;
 	private static int accessPathLength = 5;
-	private static LayoutMatchingMode layoutMatchingMode = LayoutMatchingMode.NoMatch;
+	private static LayoutMatchingMode layoutMatchingMode = LayoutMatchingMode.MatchSensitiveOnly;
 	private static boolean flowSensitiveAliasing = true;
 	private static boolean computeResultPaths = true;
 	private static boolean aggressiveTaintWrapper = false;
@@ -113,7 +112,7 @@ public class Test {
 	
 	private static CallgraphAlgorithm callgraphAlgorithm = CallgraphAlgorithm.AutomaticSelection;
 	
-	private static boolean DEBUG = true;
+	private static boolean DEBUG = false;
 
 	private static IIPCManager ipcManager = null;
 	public static void setIPCManager(IIPCManager ipcManager)
@@ -155,7 +154,6 @@ public class Test {
 		
 		List<String> apkFiles = new ArrayList<String>();
 		File apkFile = new File(args[0]);
-		String extension = apkFile.getName().substring(apkFile.getName().lastIndexOf("."));
 		if (apkFile.isDirectory()) {
 			String[] dirFiles = apkFile.list(new FilenameFilter() {
 			
@@ -167,19 +165,22 @@ public class Test {
 			});
 			for (String s : dirFiles)
 				apkFiles.add(s);
-		}
-		else if (extension.equalsIgnoreCase(".txt")) {
-			BufferedReader rdr = new BufferedReader(new FileReader(apkFile));
-			String line = null;
-			while ((line = rdr.readLine()) != null)
-				apkFiles.add(line);
-			rdr.close();
-		}
-		else if (extension.equalsIgnoreCase(".apk"))
-			apkFiles.add(args[0]);
-		else {
-			System.err.println("Invalid input file format: " + extension);
-			return;
+		} else {
+			//apk is a file so grab the extension
+			String extension = apkFile.getName().substring(apkFile.getName().lastIndexOf("."));
+			if (extension.equalsIgnoreCase(".txt")) {
+				BufferedReader rdr = new BufferedReader(new FileReader(apkFile));
+				String line = null;
+				while ((line = rdr.readLine()) != null)
+					apkFiles.add(line);
+				rdr.close();
+			}
+			else if (extension.equalsIgnoreCase(".apk"))
+				apkFiles.add(args[0]);
+			else {
+				System.err.println("Invalid input file format: " + extension);
+				return;
+			}
 		}
 
 		for (final String fileName : apkFiles) {
@@ -503,8 +504,8 @@ public class Test {
 				taintWrapper = easyTaintWrapper;
 			}
 			app.setTaintWrapper(taintWrapper);
-			//app.calculateSourcesSinksEntrypoints("SourcesAndSinksTest5.xml");
-			app.calculateSourcesSinksEntrypoints("SuSiExport.xml");
+			app.calculateSourcesSinksEntrypoints("SourcesAndSinks.txt");
+			//app.calculateSourcesSinksEntrypoints("SuSiExport.xml");
 			
 			
 			if (DEBUG) {

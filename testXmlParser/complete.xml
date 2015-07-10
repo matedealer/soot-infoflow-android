@@ -10,11 +10,11 @@
 		</return>
 		<param index="0" type="com.example.androidtest.MyTestObject">
 			<accessPath isSource="false" isSink="true" length="2"> 
-				<pathElement index="1" type="SomeClassA"> c </pathElement>
-				<pathElement index="2" type="java.lang.String"> s </pathElement>
+				<pathElement index="0" type="SomeClassA" field="c" />
+				<pathElement index="1" type="java.lang.String" field="s" />
 			</accessPath>
 			<accessPath isSource="true" isSink="false" length="1"> 
-				<pathElement index="1" type="SomeClassB"> d </pathElement>
+				<pathElement index="0" type="SomeClassB" field="d" />
 			</accessPath>
 		</param>
 		<param index="1" type="int">

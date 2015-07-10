@@ -492,6 +492,16 @@ public class ProcessManifest {
 	}
 	
 	/**
+	 * Adds a new permission to the manifest.
+	 * @param complete permission name e.g. "android.permission.INTERNET"
+	 */
+	public void addPermission(String permissionName) {				
+		AXmlNode permission = new AXmlNode("uses-permission", null, manifest);
+		AXmlAttribute<String> permissionNameAttr = new AXmlAttribute<String>("name", permissionName,  AXmlHandler.ANDROID_NAMESPACE);		
+		permission.addAttribute(permissionNameAttr);
+	}
+	
+	/**
 	 * Adds a new provider to the manifest
 	 * @param node provider represented as an AXmlNode
 	 */
@@ -537,6 +547,36 @@ public class ProcessManifest {
 	public void close() {
 		if (this.apk != null)
 			this.apk.close();
+	}
+	
+	/**
+	 * Returns all activity nodes that are "launchable", i.e. that are called when the user 
+	 * clicks on the button in the launcher.
+	 * @return
+	 */
+	public Set<AXmlNode> getLaunchableActivities() {
+		Set<AXmlNode> allLaunchableActivities = new HashSet<AXmlNode>();
+		
+		for(AXmlNode activity : activities) {
+			for(AXmlNode activityChildren : activity.getChildren()) {
+				if(activityChildren.getTag().equals("intent-filter")) {
+					boolean actionFilter = false;
+					boolean categoryFilter = false;
+					for(AXmlNode intentFilter : activityChildren.getChildren()) {
+						if(intentFilter.toString().equals("<action name=\"android.intent.action.MAIN\">"))
+							actionFilter = true;
+						else if(intentFilter.toString().equals("<category name=\"android.intent.category.LAUNCHER\">"))
+							categoryFilter = true;
+					}
+					
+					if(actionFilter && categoryFilter)
+						allLaunchableActivities.add(activity);
+				}
+			}
+			
+		}
+		
+		return allLaunchableActivities;
 	}
 	
 }

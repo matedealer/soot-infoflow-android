@@ -2,7 +2,6 @@ package soot.jimple.infoflow.android.test.xmlParser;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -10,12 +9,10 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.xmlpull.v1.XmlPullParserException;
 
-import soot.SootField;
 import soot.jimple.infoflow.android.data.AndroidMethod;
 import soot.jimple.infoflow.android.data.parsers.PermissionMethodParser;
-import soot.jimple.infoflow.android.data.parsers.XMLPermissionMethodParser;
-import soot.jimple.infoflow.data.AccessPath;
-import soot.jimple.infoflow.source.AccessPathBundle;
+import soot.jimple.infoflow.android.source.data.SourceSinkDefinition;
+import soot.jimple.infoflow.android.source.parsers.xml.XMLSourceSinkParser;
 
 /**
  * Testing the new xml-parser with the new xml format
@@ -24,8 +21,6 @@ import soot.jimple.infoflow.source.AccessPathBundle;
  *
  */
 public class XmlParserTest {
-
-	private static final int INITIAL_SET_SIZE = 10000;
 
 	/**
 	 * Compares the new and the old Parser for different xml files
@@ -36,14 +31,15 @@ public class XmlParserTest {
 	 * @throws IOException
 	 */
 	private void compareParserResults(String xmlFile, String oldXmlFile) throws IOException {
-		XMLPermissionMethodParser newParser = XMLPermissionMethodParser.fromFile(xmlFile);
+		XMLSourceSinkParser newParser = XMLSourceSinkParser.fromFile(xmlFile);
 		PermissionMethodParser oldParser = PermissionMethodParser.fromFile(oldXmlFile);
 
 		if (newParser != null && oldParser != null) {
-			Assert.assertEquals(oldParser.parse(), newParser.parse());
-		} else {
-			Assert.assertTrue(false);
+			Assert.assertEquals(oldParser.getSources(), newParser.getSources());
+			Assert.assertEquals(oldParser.getSinks(), newParser.getSinks());
 		}
+		else
+			Assert.fail();
 	}
 
 	/**
@@ -124,14 +120,13 @@ public class XmlParserTest {
 	 */
 	@Test
 	public void verifyParserResultTest() throws IOException, XmlPullParserException {
-
 		// parsing data from xml file
 		String xmlFile = "testXmlParser/complete.xml";
-		XMLPermissionMethodParser newParser = XMLPermissionMethodParser.fromFile(xmlFile);
-		Set<AndroidMethod> methodListParser = newParser.parse();
+		XMLSourceSinkParser newParser = XMLSourceSinkParser.fromFile(xmlFile);
+		Set<SourceSinkDefinition> sourceListParser = newParser.getSources();
+		Set<SourceSinkDefinition> sinkListParser = newParser.getSinks();
 
 		// create two methods with reference data
-		Set<AndroidMethod> methodListTest = new HashSet<AndroidMethod>(INITIAL_SET_SIZE);
 		String methodName = "sourceTest";
 		String returnType = "java.lang.String";
 		String className = "com.example.androidtest.Sources";
@@ -139,16 +134,34 @@ public class XmlParserTest {
 		methodParameters.add("com.example.androidtest.MyTestObject");
 		methodParameters.add("int");
 		AndroidMethod am1 = new AndroidMethod(methodName, methodParameters, returnType, className);
-		methodListTest.add(am1);
 
 		methodParameters = new ArrayList<String>();
 		methodParameters.add("double");
 		methodParameters.add("double");
 		AndroidMethod am2 = new AndroidMethod("sinkTest", methodParameters, "void",
 				"com.example.androidtest.Sinks");
-		methodListTest.add(am2);
-
-		// both methodLists should be identical
-		Assert.assertEquals(methodListTest, methodListParser);
+		
+		// Check the loaded access paths (sources)
+		Assert.assertEquals(1, sourceListParser.size());
+		SourceSinkDefinition loadedSource = sourceListParser.iterator().next();
+		Assert.assertEquals(am1, loadedSource.getMethod());
+		Assert.assertEquals(0, loadedSource.getBaseObjectCount());
+		Assert.assertEquals(2, loadedSource.getParameterCount());
+		Assert.assertEquals(1, loadedSource.getReturnValueCount());
+		
+		// Check the loaded access paths (sinks)
+		Assert.assertEquals(2, sinkListParser.size());
+		for (SourceSinkDefinition def : sinkListParser) {
+			Assert.assertTrue(def.getMethod().equals(am1) || def.getMethod().equals(am2));
+			if (def.getMethod().equals(am1)) {
+				Assert.assertEquals(1, def.getBaseObjectCount());
+				Assert.assertEquals(1, def.getParameterCount());
+			}
+			else if (def.getMethod().equals(am2)) {
+				Assert.assertEquals(1, def.getParameterCount());				
+			}
+			else
+				Assert.fail("should never happen");
+		}
 	}
 }

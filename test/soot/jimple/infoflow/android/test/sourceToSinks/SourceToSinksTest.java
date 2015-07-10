@@ -21,8 +21,8 @@ public class SourceToSinksTest extends JUnitTests{
 	@Test(timeout=300000)
 	public void runSourceToSinkTest1()  throws IOException, XmlPullParserException {
 		res = null;
-		res = analyzeAPKFile
-					("testSourceToSink/SourceToSink1.apk","testSourceToSink/sourcesAndSinks.xml");
+		res = analyzeAPKFile("testAPKs/SourceSinkDefinitions/SourceToSink1.apk",
+				"testAPKs/SourceSinkDefinitions/sourcesAndSinks.xml");
 		Assert.assertNotNull(res);
 		Assert.assertEquals(1, res.size());
 	}
@@ -36,8 +36,8 @@ public class SourceToSinksTest extends JUnitTests{
 	@Test(timeout=300000)
 	public void runSourceToSinkTest2() throws IOException, XmlPullParserException {
 		res = null;
-		res = analyzeAPKFile
-					("testSourceToSink/SourceToSink2.apk","testSourceToSink/sourcesAndSinks.xml");
+		res = analyzeAPKFile("testAPKs/SourceSinkDefinitions/SourceToSink2.apk",
+				"testAPKs/SourceSinkDefinitions/sourcesAndSinks.xml");
 		Assert.assertNotNull(res);
 		Assert.assertEquals(5, res.size());
 	}
@@ -51,8 +51,8 @@ public class SourceToSinksTest extends JUnitTests{
 	@Test(timeout=300000)
 	public void runSourceToSinkTest3() throws IOException, XmlPullParserException {
 		res = null;
-		res = analyzeAPKFile
-					("testSourceToSink/SourceToSink3.apk","testSourceToSink/sourcesAndSinks.xml");
+		res = analyzeAPKFile("testAPKs/SourceSinkDefinitions/SourceToSink3.apk",
+				"testAPKs/SourceSinkDefinitions/sourcesAndSinks.xml");
 		Assert.assertNotNull(res);
 		Assert.assertEquals(1, res.size());
 	}
@@ -66,8 +66,8 @@ public class SourceToSinksTest extends JUnitTests{
 	@Test(timeout=300000)
 	public void runSourceToSinkTest4() throws IOException, XmlPullParserException {
 		res = null;
-		res = analyzeAPKFile
-					("testSourceToSink/SourceToSink4.apk","testSourceToSink/sourcesAndSinks.xml");
+		res = analyzeAPKFile("testAPKs/SourceSinkDefinitions/SourceToSink4.apk",
+				"testAPKs/SourceSinkDefinitions/sourcesAndSinks.xml");
 		Assert.assertNotNull(res);
 		Assert.assertEquals(1, res.size());
 	}
@@ -81,8 +81,8 @@ public class SourceToSinksTest extends JUnitTests{
 	@Test(timeout=300000)
 	public void runSourceToSinkTest5() throws IOException, XmlPullParserException {
 		res = null;
-		res = analyzeAPKFile
-					("testSourceToSink/SourceToSink5.apk","testSourceToSink/sourcesAndSinks.xml");
+		res = analyzeAPKFile("testAPKs/SourceSinkDefinitions/SourceToSink5.apk",
+				"testAPKs/SourceSinkDefinitions/sourcesAndSinks.xml");
 		Assert.assertNotNull(res);
 		Assert.assertEquals(2, res.size());
 	}
@@ -96,8 +96,8 @@ public class SourceToSinksTest extends JUnitTests{
 	@Test(timeout=300000)
 	public void runSourceToSinkTest6() throws IOException, XmlPullParserException {
 		res = null;
-		res = analyzeAPKFile
-					("testSourceToSink/SourceToSink6.apk","testSourceToSink/sourcesAndSinks.xml");
+		res = analyzeAPKFile("testAPKs/SourceSinkDefinitions/SourceToSink6.apk",
+				"testAPKs/SourceSinkDefinitions/sourcesAndSinks.xml");
 		Assert.assertNotNull(res);
 		Assert.assertEquals(6, res.size());
 	}
